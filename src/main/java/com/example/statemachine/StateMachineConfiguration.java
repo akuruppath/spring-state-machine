@@ -1,9 +1,9 @@
 package com.example.statemachine;
 
-import java.util.EnumSet;
 import java.util.Optional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.Message;
+import org.springframework.statemachine.action.Action;
 import org.springframework.statemachine.config.EnableStateMachine;
 import org.springframework.statemachine.config.EnumStateMachineConfigurerAdapter;
 import org.springframework.statemachine.config.builders.StateMachineConfigurationConfigurer;
@@ -29,7 +29,8 @@ public class StateMachineConfiguration extends EnumStateMachineConfigurerAdapter
 
   @Override
   public void configure(StateMachineStateConfigurer<States, Events> states) throws Exception {
-    states.withStates().initial(States.BACKLOG).states(EnumSet.allOf(States.class));
+    states.withStates().initial(States.BACKLOG).state(States.TO_DO).state(States.IN_PROGRESS)
+        .state(States.REVIEW).state(States.DONE, mergeAction());
   }
 
 
@@ -62,6 +63,12 @@ public class StateMachineConfiguration extends EnumStateMachineConfigurerAdapter
       private Object ofNullableState(State s) {
         return Optional.ofNullable(s).map(State::getId).orElse(null);
       }
+    };
+  }
+
+  private Action<States, Events> mergeAction() {
+    return context -> {
+      log.warn("MERGING FEATURE INTO THE MASTER BRANCH: {}", context.getEvent());
     };
   }
 
