@@ -10,6 +10,7 @@ import org.springframework.statemachine.config.EnumStateMachineConfigurerAdapter
 import org.springframework.statemachine.config.builders.StateMachineConfigurationConfigurer;
 import org.springframework.statemachine.config.builders.StateMachineStateConfigurer;
 import org.springframework.statemachine.config.builders.StateMachineTransitionConfigurer;
+import org.springframework.statemachine.guard.Guard;
 import org.springframework.statemachine.listener.StateMachineListener;
 import org.springframework.statemachine.listener.StateMachineListenerAdapter;
 import org.springframework.statemachine.state.State;
@@ -37,15 +38,51 @@ public class StateMachineConfiguration extends EnumStateMachineConfigurerAdapter
   @Override
   public void configure(StateMachineTransitionConfigurer<States, Events> transitions)
       throws Exception {
-    transitions.withExternal().source(States.BACKLOG).target(States.TO_DO)
-        .event(Events.MARK_READY_FOR_CURRENT_SPRINT).and().withExternal().source(States.TO_DO)
-        .target(States.IN_PROGRESS).event(Events.MARK_IN_PROGRESS).and().withExternal()
-        .source(States.IN_PROGRESS).target(States.REVIEW).event(Events.MARK_READY_FOR_REVIEW).and()
-        .withExternal().source(States.REVIEW).target(States.DONE).event(Events.MARK_DONE)
-        .action(mergeAction()).and().withExternal().source(States.DONE).target(States.IN_PROGRESS)
-        .event(Events.MARK_IN_PROGRESS).action(inProgressAction()).and().withExternal()
-        .source(States.REVIEW).target(States.IN_PROGRESS).event(Events.MARK_IN_PROGRESS)
+
+    /* @formatter:off */
+    transitions.withExternal()
+    
+        .source(States.BACKLOG)
+        .target(States.TO_DO)
+        .event(Events.MARK_READY_FOR_CURRENT_SPRINT)
+        
+        .and().withExternal()
+        
+        .source(States.TO_DO)
+        .target(States.IN_PROGRESS)
+        .event(Events.MARK_IN_PROGRESS)
+        
+        .and().withExternal()
+        
+        .source(States.IN_PROGRESS)
+        .target(States.REVIEW)
+        .event(Events.MARK_READY_FOR_REVIEW)
+        .action(reviewAction())
+        
+        .and().withExternal()
+        
+        .source(States.REVIEW)
+        .target(States.DONE)
+        .event(Events.MARK_DONE)
+        .guard(checkReviewGuard())
+        .action(mergeAction())
+        
+        .and().withExternal()
+        
+        .source(States.DONE)
+        .target(States.IN_PROGRESS)
+        .event(Events.MARK_IN_PROGRESS)
+        .action(undoReviewAction())
+        .action(inProgressAction())
+        
+        .and().withExternal()
+        .source(States.REVIEW)
+        .target(States.IN_PROGRESS)
+        .event(Events.MARK_IN_PROGRESS)
+        .action(undoReviewAction())
         .action(inProgressAction());
+    
+    /* @formatter:on */
   }
 
 
@@ -64,10 +101,20 @@ public class StateMachineConfiguration extends EnumStateMachineConfigurerAdapter
             ofNullableState(transition.getTarget()));
       }
 
-      private Object ofNullableState(State s) {
+      private States ofNullableState(State<States, Events> s) {
         return Optional.ofNullable(s).map(State::getId).orElse(null);
       }
     };
+  }
+
+  private Action<States, Events> reviewAction() {
+    log.warn("APPROVED FOR MERGE.");
+    return context -> context.getExtendedState().getVariables().put("approved", true);
+  }
+
+  private Action<States, Events> undoReviewAction() {
+    log.warn("NEEDS RE-REVIEW.");
+    return context -> context.getExtendedState().getVariables().put("approved", false);
   }
 
   private Action<States, Events> mergeAction() {
@@ -76,6 +123,14 @@ public class StateMachineConfiguration extends EnumStateMachineConfigurerAdapter
 
   private Action<States, Events> inProgressAction() {
     return context -> log.warn("MORE WORK REQUIRED: {}", context.getEvent());
+  }
+
+  private Guard<States, Events> checkReviewGuard() {
+    log.warn("Checking whether a review was performed ... ");
+    return context -> {
+      Boolean reviewed = (Boolean) context.getExtendedState().getVariables().get("approved");
+      return reviewed == null ? false : reviewed;
+    };
   }
 
 }
