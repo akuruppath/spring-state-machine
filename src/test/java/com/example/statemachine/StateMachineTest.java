@@ -30,4 +30,13 @@ class StateMachineTest {
     assertThat(stateMachine.getState().getId()).isEqualTo(States.DONE);
   }
 
+  
+  @Test
+  void testStateMachineWrongTransition() {
+    
+    stateMachine.sendEvent(Events.MARK_READY_FOR_CURRENT_SPRINT);
+    stateMachine.sendEvent(Events.MARK_DONE);
+    
+    assertThat(stateMachine.getState().getId()).isEqualTo(States.TO_DO);
+  }
 }
