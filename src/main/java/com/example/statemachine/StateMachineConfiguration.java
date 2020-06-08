@@ -1,5 +1,6 @@
 package com.example.statemachine;
 
+import java.util.EnumSet;
 import java.util.Optional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.Message;
@@ -29,8 +30,7 @@ public class StateMachineConfiguration extends EnumStateMachineConfigurerAdapter
 
   @Override
   public void configure(StateMachineStateConfigurer<States, Events> states) throws Exception {
-    states.withStates().initial(States.BACKLOG).state(States.TO_DO).state(States.IN_PROGRESS)
-        .state(States.REVIEW).state(States.DONE, mergeAction());
+    states.withStates().initial(States.BACKLOG).states(EnumSet.allOf(States.class));
   }
 
 
@@ -41,7 +41,11 @@ public class StateMachineConfiguration extends EnumStateMachineConfigurerAdapter
         .event(Events.MARK_READY_FOR_CURRENT_SPRINT).and().withExternal().source(States.TO_DO)
         .target(States.IN_PROGRESS).event(Events.MARK_IN_PROGRESS).and().withExternal()
         .source(States.IN_PROGRESS).target(States.REVIEW).event(Events.MARK_READY_FOR_REVIEW).and()
-        .withExternal().source(States.REVIEW).target(States.DONE).event(Events.MARK_DONE);
+        .withExternal().source(States.REVIEW).target(States.DONE).event(Events.MARK_DONE)
+        .action(mergeAction()).and().withExternal().source(States.DONE).target(States.IN_PROGRESS)
+        .event(Events.MARK_IN_PROGRESS).action(inProgressAction()).and().withExternal()
+        .source(States.REVIEW).target(States.IN_PROGRESS).event(Events.MARK_IN_PROGRESS)
+        .action(inProgressAction());
   }
 
 
@@ -56,7 +60,7 @@ public class StateMachineConfiguration extends EnumStateMachineConfigurerAdapter
 
       @Override
       public void transition(Transition<States, Events> transition) {
-        log.warn("Transition from [{}] to [{}]", ofNullableState(transition.getSource()),
+        log.warn("Transition from:[{}] to:[{}]", ofNullableState(transition.getSource()),
             ofNullableState(transition.getTarget()));
       }
 
@@ -67,9 +71,11 @@ public class StateMachineConfiguration extends EnumStateMachineConfigurerAdapter
   }
 
   private Action<States, Events> mergeAction() {
-    return context -> {
-      log.warn("MERGING FEATURE INTO THE MASTER BRANCH: {}", context.getEvent());
-    };
+    return context -> log.warn("MERGING INTO THE MASTER BRANCH: {}", context.getEvent());
+  }
+
+  private Action<States, Events> inProgressAction() {
+    return context -> log.warn("MORE WORK REQUIRED: {}", context.getEvent());
   }
 
 }

@@ -18,7 +18,7 @@ class StateMachineTest {
      assertThat(stateMachine).isNotNull();
      assertThat(stateMachine.getInitialState().getId()).isEqualTo(States.BACKLOG);
   }
-
+  
   @Test
   void testStateMachineTransitions() {
     
@@ -29,14 +29,16 @@ class StateMachineTest {
     
     assertThat(stateMachine.getState().getId()).isEqualTo(States.DONE);
   }
-
   
   @Test
   void testStateMachineWrongTransition() {
     
-    stateMachine.sendEvent(Events.MARK_READY_FOR_CURRENT_SPRINT);
+    stateMachine.sendEvent(Events.MARK_IN_PROGRESS);
     stateMachine.sendEvent(Events.MARK_DONE);
     
-    assertThat(stateMachine.getState().getId()).isEqualTo(States.TO_DO);
+    assertThat(stateMachine.getState().getId()).isEqualTo(States.IN_PROGRESS);
   }
+
+  
+
 }
